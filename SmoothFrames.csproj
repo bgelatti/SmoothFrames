@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <AssemblyName>SmoothFrames</AssemblyName>
+    <RootNamespace>SmoothFrames</RootNamespace>
+    <Version>1.0.0</Version>
+    <!-- Version attributes live in src/Plugin.cs -->
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+
+    <!-- Point this at your Apocalypter install, or pass -p:GamePath="..." to dotnet build -->
+    <GamePath Condition="'$(GamePath)' == ''">C:\Program Files (x86)\Steam\steamapps\common\Apocalypter</GamePath>
+    <ManagedPath>$(GamePath)\Apocalypter_Data\Managed</ManagedPath>
+    <BepInExPath>$(GamePath)\BepInEx\core</BepInExPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="src\**\*.cs" />
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+
+  <!-- Game and loader assemblies: referenced, never copied to the output -->
+  <ItemGroup>
+    <Reference Include="BepInEx"><HintPath>$(BepInExPath)\BepInEx.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="0Harmony"><HintPath>$(BepInExPath)\0Harmony.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine"><HintPath>$(ManagedPath)\UnityEngine.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.CoreModule"><HintPath>$(ManagedPath)\UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.PhysicsModule"><HintPath>$(ManagedPath)\UnityEngine.PhysicsModule.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+
+  <!-- Optional: copy the built DLL straight into the game's plugins folder -->
+  <Target Name="CopyToPlugins" AfterTargets="Build" Condition="'$(CopyToGame)' == 'true'">
+    <MakeDir Directories="$(GamePath)\BepInEx\plugins\SmoothFrames" />
+    <Copy SourceFiles="$(OutputPath)SmoothFrames.dll;assets\icon.png" DestinationFolder="$(GamePath)\BepInEx\plugins\SmoothFrames" />
+  </Target>
+
+</Project>

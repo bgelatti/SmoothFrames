@@ -1,0 +1,52 @@
+name: Bug report
+description: Something does not work as expected.
+labels: [bug]
+body:
+  - type: input
+    id: mod-version
+    attributes:
+      label: Smooth Frames version
+      placeholder: "1.0.0"
+    validations:
+      required: true
+  - type: input
+    id: game-version
+    attributes:
+      label: Apocalypter version
+    validations:
+      required: true
+  - type: input
+    id: bepinex-version
+    attributes:
+      label: BepInEx version
+      placeholder: "5.4.23"
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What you expected and what happened instead. If another mod stopped working, say which one.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Load a save
+        2. Drive to ...
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: mods
+    attributes:
+      label: Other mods installed
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: LogOutput.log
+      description: Attach or paste `Apocalypter\BepInEx\LogOutput.log` (drag the file here).
