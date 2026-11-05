@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.1
+- Trailer trains: trailers hitched with Burner's Utilities' hitches are followed. Only bodies with a coupler count as trailers, so cargo nailed or locked into a trailer is no longer taken for the next trailer, and the search looks on the trailers' layer first.
+- New `[Debug] LogTrailers` option: writes the trailers found to the BepInEx log, for bug reports.
+
 ## 1.1.0
 - Interpolation follows trailer trains: every trailer hitched to the vehicle or to another trailer (up to 8), not only the first one.
 

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text;
 using UnityEngine;
 
 namespace SmoothFrames
@@ -55,13 +56,22 @@ namespace SmoothFrames
     {
         private const float TowRange = 15f;
         private const int MaxTrailers = 8;
+        // layer of the trailers' couplers, the one the hitches' sphere casts look on
+        private const int TrailerLayer = 20;
         private static readonly Dictionary<int, bool> Wheeled = new Dictionary<int, bool>();
+        private static readonly Dictionary<int, bool> Trailers = new Dictionary<int, bool>();
         private static readonly List<Component> Comps = new List<Component>();
+        private static readonly List<Transform> Kids = new List<Transform>();
         private static readonly List<Joint> Joints = new List<Joint>();
         private static readonly Collider[] Overlap = new Collider[512];
         private static readonly HashSet<int> Seen = new HashSet<int>();
 
-        public static void ClearCache() { Wheeled.Clear(); }
+        // [Debug] LogTrailers: the chain is written to the log when it changes, with what was turned down after its last link
+        internal static bool LogTrailers;
+        private static readonly StringBuilder Diag = new StringBuilder();
+        private static string _lastChain;
+
+        public static void ClearCache() { Wheeled.Clear(); Trailers.Clear(); _lastChain = null; }
 
         // Above the camera: the lowest body without wheels is the player, the topmost wheeled one the vehicle.
         // Without a body above the camera, the object tagged "Player" is used.
@@ -120,33 +130,55 @@ namespace SmoothFrames
 
         // The trailers: the body at the other end of a hitch joint on the vehicle (or on a nearby body), then the
         // body hitched to that trailer, and so on, so trailer trains are followed to the end.
+        // Only bodies with a coupler (a child named "attacher", which the game's hitches and Burner's Utilities' need) count
+        // as trailers, so cargo nailed or locked into a trailer is not taken for the next one. The first trailer falls back
+        // to any hitched body, as in 1.1.0, in case a modded trailer has no coupler of that name.
         public static void FindTrailers(Rigidbody vehicle, List<Rigidbody> chain)
         {
             chain.Clear();
             var puller = vehicle;
             while (chain.Count < MaxTrailers)
             {
-                var next = FindHitched(puller, vehicle.transform, chain);
+                var next = FindHitched(puller, vehicle.transform, chain, true);
+                if (next == null && chain.Count == 0) next = FindHitched(puller, vehicle.transform, chain, false);
                 if (next == null || next == vehicle || chain.Contains(next)) break;
                 chain.Add(next);
                 puller = next;
             }
+            if (LogTrailers) LogChain(vehicle, chain);
         }
 
         // The body hitched to the puller that is not the vehicle or a trailer already found.
-        private static Rigidbody FindHitched(Rigidbody puller, Transform vehicleRoot, List<Rigidbody> chain)
+        private static Rigidbody FindHitched(Rigidbody puller, Transform vehicleRoot, List<Rigidbody> chain, bool strict)
         {
+            if (LogTrailers && strict) Diag.Length = 0;
             var root = puller.transform;
+            Rigidbody found = null;
+
+            // a joint on the puller holding the trailer
             puller.GetComponentsInChildren(false, Joints);
-            for (int i = 0; i < Joints.Count; i++)
+            for (int i = 0; i < Joints.Count && found == null; i++)
             {
                 var other = Joints[i] != null ? Joints[i].connectedBody : null;
-                if (other != null && !InChain(other.transform, vehicleRoot, chain)) { Joints.Clear(); return TopBody(other); }
+                if (other == null || InChain(other.transform, vehicleRoot, chain)) continue;
+                var top = TopBody(other);
+                if (!strict || IsTrailer(top)) found = top;
+                else if (LogTrailers) Note(top, Joints[i]);
             }
             Joints.Clear();
+            if (found != null) return found;
 
+            // a joint on a nearby trailer holding the puller: couplers' layer first, then everything
+            found = Scan(puller, vehicleRoot, chain, strict, 1 << TrailerLayer, QueryTriggerInteraction.Collide);
+            if (found == null) found = Scan(puller, vehicleRoot, chain, strict, ~0, QueryTriggerInteraction.Ignore);
+            return found;
+        }
+
+        private static Rigidbody Scan(Rigidbody puller, Transform vehicleRoot, List<Rigidbody> chain, bool strict, int mask, QueryTriggerInteraction triggers)
+        {
+            var root = puller.transform;
             Rigidbody found = null;
-            int n = Physics.OverlapSphereNonAlloc(puller.worldCenterOfMass, TowRange, Overlap, ~0, QueryTriggerInteraction.Ignore);
+            int n = Physics.OverlapSphereNonAlloc(puller.worldCenterOfMass, TowRange, Overlap, mask, triggers);
             Seen.Clear();
             for (int i = 0; i < n; i++)
             {
@@ -154,16 +186,74 @@ namespace SmoothFrames
                 Overlap[i] = null;
                 if (found != null) continue;
                 var body = col != null ? col.attachedRigidbody : null;
-                if (body == null || !Seen.Add(body.GetInstanceID()) || InChain(body.transform, vehicleRoot, chain)) continue;
-                body.GetComponents(Joints);
-                for (int k = 0; k < Joints.Count; k++)
+                if (body == null) continue;
+                if (strict)
                 {
-                    var held = Joints[k] != null ? Joints[k].connectedBody : null;
-                    if (held != null && held.transform.IsChildOf(root)) { found = TopBody(body); break; }
+                    // the whole trailer, since the hitch joint can sit on a body under it
+                    var top = TopBody(body);
+                    if (!Seen.Add(top.GetInstanceID()) || InChain(top.transform, vehicleRoot, chain)) continue;
+                    bool trailer = IsTrailer(top);
+                    if (!trailer && !LogTrailers) continue;
+                    top.GetComponentsInChildren(false, Joints);
+                    var j = HoldsPuller(root);
+                    if (j != null)
+                    {
+                        if (trailer) found = top;
+                        else Note(top, j);
+                    }
+                }
+                else
+                {
+                    if (!Seen.Add(body.GetInstanceID()) || InChain(body.transform, vehicleRoot, chain)) continue;
+                    body.GetComponents(Joints);
+                    if (HoldsPuller(root) != null) found = TopBody(body);
                 }
                 Joints.Clear();
             }
             return found;
+        }
+
+        // The joint in Joints whose other end is part of the puller.
+        private static Joint HoldsPuller(Transform root)
+        {
+            for (int k = 0; k < Joints.Count; k++)
+            {
+                var held = Joints[k] != null ? Joints[k].connectedBody : null;
+                if (held != null && held.transform.IsChildOf(root)) return Joints[k];
+            }
+            return null;
+        }
+
+        // A body with a child named "attacher", the coupler a hitch locks onto.
+        public static bool IsTrailer(Rigidbody rb)
+        {
+            int id = rb.GetInstanceID();
+            bool t;
+            if (Trailers.TryGetValue(id, out t)) return t;
+            rb.GetComponentsInChildren(true, Kids);
+            for (int i = 0; i < Kids.Count && !t; i++)
+                t = Kids[i] != null && Kids[i].name == "attacher";
+            Kids.Clear();
+            Trailers[id] = t;
+            return t;
+        }
+
+        private static void Note(Rigidbody body, Joint joint)
+        {
+            if (Diag.Length > 1500) return;
+            Diag.Append("\n  turned down ").Append(body.name).Append(" (").Append(joint.GetType().Name).Append(" on ")
+                .Append(joint.name).Append(" -> ").Append(joint.connectedBody != null ? joint.connectedBody.name : "none")
+                .Append(", no \"attacher\" child)");
+        }
+
+        private static void LogChain(Rigidbody vehicle, List<Rigidbody> chain)
+        {
+            var sb = new StringBuilder("Trailers: ").Append(vehicle.name);
+            for (int i = 0; i < chain.Count; i++) sb.Append(" -> ").Append(chain[i] != null ? chain[i].name : "?");
+            string line = sb.ToString();
+            if (line == _lastChain) return;
+            _lastChain = line;
+            SmoothFramesPlugin.Log.LogInfo(line + Diag);
         }
 
         // Part of the vehicle or of a trailer already in the chain.

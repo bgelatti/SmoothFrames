@@ -10,8 +10,8 @@ using BepInEx.Logging;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-[assembly: System.Reflection.AssemblyVersion("1.1.0.0")]
-[assembly: System.Reflection.AssemblyFileVersion("1.1.0.0")]
+[assembly: System.Reflection.AssemblyVersion("1.1.1.0")]
+[assembly: System.Reflection.AssemblyFileVersion("1.1.1.0")]
 [assembly: System.Reflection.AssemblyTitle("Smooth Frames")]
 
 namespace SmoothFrames
@@ -21,11 +21,11 @@ namespace SmoothFrames
     {
         public const string GUID = "com.gelatti.apocalypter.smoothframes";
         public const string NAME = "Smooth Frames";
-        public const string VERSION = "1.1.0";
+        public const string VERSION = "1.1.1";
 
         internal static ManualLogSource Log;
 
-        internal ConfigEntry<bool> InterpEnabled, InterpVehicle, InterpTrailer;
+        internal ConfigEntry<bool> InterpEnabled, InterpVehicle, InterpTrailer, LogTrailers;
         internal ConfigEntry<bool> FixFindCache;
         internal ConfigEntry<float> FindCacheSeconds;
         internal ConfigEntry<string> FindCacheExclude;
@@ -66,6 +66,10 @@ namespace SmoothFrames
                 InterpEnabled.SettingChanged += refresh;
                 InterpVehicle.SettingChanged += refresh;
                 InterpTrailer.SettingChanged += refresh;
+                LogTrailers = Config.Bind("Debug", "LogTrailers", false,
+                    "Writes the trailers found behind your vehicle to the BepInEx log whenever they change, with the hitched bodies " +
+                    "that were not taken for trailers. For bug reports.");
+                LogTrailers.SettingChanged += refresh;
 
                 FindCache.Enabled = FixFindCache.Value;
                 FindCache.Seconds = FindCacheSeconds.Value;
@@ -111,6 +115,7 @@ namespace SmoothFrames
                 if (t >= _nextRefresh)
                 {
                     _nextRefresh = t + RefreshInterval;
+                    PlayerFinder.LogTrailers = LogTrailers.Value;
                     _interp.Refresh(InterpEnabled.Value, InterpVehicle.Value, InterpTrailer.Value);
                 }
             }

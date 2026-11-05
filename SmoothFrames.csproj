@@ -4,7 +4,7 @@
     <TargetFramework>net472</TargetFramework>
     <AssemblyName>SmoothFrames</AssemblyName>
     <RootNamespace>SmoothFrames</RootNamespace>
-    <Version>1.1.0</Version>
+    <Version>1.1.1</Version>
     <!-- Version attributes live in src/Plugin.cs -->
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <LangVersion>latest</LangVersion>

@@ -46,6 +46,7 @@ Everything is on by default. There are no keys; each option can be switched in *
 | Interpolation | `Enabled` | on | Interpolation on the player. |
 | Interpolation | `IncludeVehicle` | on | Also on the vehicle you drive. |
 | Interpolation | `IncludeTrailer` | on | Also on the trailers hitched to it, trailer trains included. |
+| Debug | `LogTrailers` | off | Writes the trailers found behind your vehicle to the BepInEx log, for bug reports. |
 
 ## Compatibility
 
