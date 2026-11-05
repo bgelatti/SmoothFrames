@@ -1,6 +1,6 @@
 // Smooth Frames - BepInEx 5 plugin for Apocalypter
 // Removes the stutter caused by mods that search the whole scene (FindObjectsOfType) on timers, by sharing one
-// short-lived answer between them, and turns on rigidbody interpolation for the player, the vehicle and its trailer.
+// short-lived answer between them, and turns on rigidbody interpolation for the player, the vehicle and its trailers.
 
 using System;
 using System.Diagnostics;
@@ -10,8 +10,8 @@ using BepInEx.Logging;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-[assembly: System.Reflection.AssemblyVersion("1.0.0.0")]
-[assembly: System.Reflection.AssemblyFileVersion("1.0.0.0")]
+[assembly: System.Reflection.AssemblyVersion("1.1.0.0")]
+[assembly: System.Reflection.AssemblyFileVersion("1.1.0.0")]
 [assembly: System.Reflection.AssemblyTitle("Smooth Frames")]
 
 namespace SmoothFrames
@@ -21,7 +21,7 @@ namespace SmoothFrames
     {
         public const string GUID = "com.gelatti.apocalypter.smoothframes";
         public const string NAME = "Smooth Frames";
-        public const string VERSION = "1.0.0";
+        public const string VERSION = "1.1.0";
 
         internal static ManualLogSource Log;
 
@@ -61,7 +61,7 @@ namespace SmoothFrames
                 InterpEnabled = Config.Bind("Interpolation", "Enabled", true,
                     "Sets RigidbodyInterpolation.Interpolate on the player's rigidbody. The original value comes back when turned off.");
                 InterpVehicle = Config.Bind("Interpolation", "IncludeVehicle", true, "Also interpolates the vehicle the player is driving.");
-                InterpTrailer = Config.Bind("Interpolation", "IncludeTrailer", true, "Also interpolates the trailer hitched to that vehicle.");
+                InterpTrailer = Config.Bind("Interpolation", "IncludeTrailer", true, "Also interpolates the trailers hitched to that vehicle, including trailers hitched to other trailers.");
                 EventHandler refresh = (s, e) => _nextRefresh = 0f;
                 InterpEnabled.SettingChanged += refresh;
                 InterpVehicle.SettingChanged += refresh;

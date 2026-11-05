@@ -1,6 +1,6 @@
 # Smooth Frames
 
-A BepInEx 5 mod for **Apocalypter** that removes the constant micro-stutter many mod setups get, and smooths the movement of the player, the car and the trailer.
+A BepInEx 5 mod for **Apocalypter** that removes the constant micro-stutter many mod setups get, and smooths the movement of the player, the car and its trailers (trailer trains included).
 
 ## What it fixes
 
@@ -14,7 +14,7 @@ Smooth Frames redirects those calls, in **every mod in `BepInEx\plugins`**, to a
 - **Left as they were:** code that saves or loads the game, and searches that ask for disabled objects.
 - **No mod or save file is changed.** The redirection is applied in memory when the game starts.
 
-It also sets rigidbody **interpolation** on the player, the car you drive and its trailer, so they move smoothly between physics steps. The original values come back when you turn it off or leave the vehicle.
+It also sets rigidbody **interpolation** on the player, the car you drive and every trailer hitched to it (including trailers hitched to other trailers), so they move smoothly between physics steps. The original values come back when you turn it off or leave the vehicle.
 
 Measured on a heavily modded game (25 mods), the result was going from about 45 FPS with stutter every few hundred milliseconds to 75-95 FPS on foot, with the periodic 50-70 ms hitches gone.
 
@@ -45,7 +45,7 @@ Everything is on by default. There are no keys; each option can be switched in *
 | Fixes | `FindCacheExclude` | empty | DLL names (without `.dll`, comma separated) the cache must leave alone. Takes effect after a restart. |
 | Interpolation | `Enabled` | on | Interpolation on the player. |
 | Interpolation | `IncludeVehicle` | on | Also on the vehicle you drive. |
-| Interpolation | `IncludeTrailer` | on | Also on the trailer hitched to it. |
+| Interpolation | `IncludeTrailer` | on | Also on the trailers hitched to it, trailer trains included. |
 
 ## Compatibility
 

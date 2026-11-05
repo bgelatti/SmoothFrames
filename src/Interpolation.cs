@@ -9,22 +9,24 @@ namespace SmoothFrames
     internal class Interpolation
     {
         private readonly Dictionary<Rigidbody, RigidbodyInterpolation> _original = new Dictionary<Rigidbody, RigidbodyInterpolation>();
-        private readonly List<Rigidbody> _wanted = new List<Rigidbody>(4);
-        private readonly List<Rigidbody> _drop = new List<Rigidbody>(4);
+        private readonly List<Rigidbody> _wanted = new List<Rigidbody>(12);
+        private readonly List<Rigidbody> _drop = new List<Rigidbody>(12);
+        private readonly List<Rigidbody> _towed = new List<Rigidbody>(8);
 
         public void Refresh(bool on, bool vehicle, bool trailer)
         {
-            Rigidbody player = null, car = null, towed = null;
+            Rigidbody player = null, car = null;
+            _towed.Clear();
             if (on)
             {
                 PlayerFinder.Find(Camera.main, out player, out car);
-                if (trailer && car != null) towed = PlayerFinder.FindTrailer(car);
+                if (trailer && car != null) PlayerFinder.FindTrailers(car, _towed);
             }
 
             _wanted.Clear();
             Want(player);
             if (vehicle) Want(car);
-            if (trailer) Want(towed);
+            for (int i = 0; i < _towed.Count; i++) Want(_towed[i]);
 
             _drop.Clear();
             foreach (var kv in _original)
@@ -52,6 +54,7 @@ namespace SmoothFrames
     internal static class PlayerFinder
     {
         private const float TowRange = 15f;
+        private const int MaxTrailers = 8;
         private static readonly Dictionary<int, bool> Wheeled = new Dictionary<int, bool>();
         private static readonly List<Component> Comps = new List<Component>();
         private static readonly List<Joint> Joints = new List<Joint>();
@@ -115,20 +118,35 @@ namespace SmoothFrames
             return w;
         }
 
-        // The trailer: the body at the other end of a hitch joint, on the vehicle or on a nearby body.
-        public static Rigidbody FindTrailer(Rigidbody vehicle)
+        // The trailers: the body at the other end of a hitch joint on the vehicle (or on a nearby body), then the
+        // body hitched to that trailer, and so on, so trailer trains are followed to the end.
+        public static void FindTrailers(Rigidbody vehicle, List<Rigidbody> chain)
         {
-            var root = vehicle.transform;
-            vehicle.GetComponentsInChildren(false, Joints);
+            chain.Clear();
+            var puller = vehicle;
+            while (chain.Count < MaxTrailers)
+            {
+                var next = FindHitched(puller, vehicle.transform, chain);
+                if (next == null || next == vehicle || chain.Contains(next)) break;
+                chain.Add(next);
+                puller = next;
+            }
+        }
+
+        // The body hitched to the puller that is not the vehicle or a trailer already found.
+        private static Rigidbody FindHitched(Rigidbody puller, Transform vehicleRoot, List<Rigidbody> chain)
+        {
+            var root = puller.transform;
+            puller.GetComponentsInChildren(false, Joints);
             for (int i = 0; i < Joints.Count; i++)
             {
                 var other = Joints[i] != null ? Joints[i].connectedBody : null;
-                if (other != null && !other.transform.IsChildOf(root)) { Joints.Clear(); return TopBody(other); }
+                if (other != null && !InChain(other.transform, vehicleRoot, chain)) { Joints.Clear(); return TopBody(other); }
             }
             Joints.Clear();
 
             Rigidbody found = null;
-            int n = Physics.OverlapSphereNonAlloc(vehicle.worldCenterOfMass, TowRange, Overlap, ~0, QueryTriggerInteraction.Ignore);
+            int n = Physics.OverlapSphereNonAlloc(puller.worldCenterOfMass, TowRange, Overlap, ~0, QueryTriggerInteraction.Ignore);
             Seen.Clear();
             for (int i = 0; i < n; i++)
             {
@@ -136,7 +154,7 @@ namespace SmoothFrames
                 Overlap[i] = null;
                 if (found != null) continue;
                 var body = col != null ? col.attachedRigidbody : null;
-                if (body == null || body.transform.IsChildOf(root) || !Seen.Add(body.GetInstanceID())) continue;
+                if (body == null || !Seen.Add(body.GetInstanceID()) || InChain(body.transform, vehicleRoot, chain)) continue;
                 body.GetComponents(Joints);
                 for (int k = 0; k < Joints.Count; k++)
                 {
@@ -146,6 +164,15 @@ namespace SmoothFrames
                 Joints.Clear();
             }
             return found;
+        }
+
+        // Part of the vehicle or of a trailer already in the chain.
+        private static bool InChain(Transform t, Transform vehicleRoot, List<Rigidbody> chain)
+        {
+            if (t.IsChildOf(vehicleRoot)) return true;
+            for (int i = 0; i < chain.Count; i++)
+                if (chain[i] != null && t.IsChildOf(chain[i].transform)) return true;
+            return false;
         }
 
         private static Rigidbody TopBody(Rigidbody rb)
